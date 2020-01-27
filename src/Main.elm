@@ -1,53 +1,41 @@
-module Main exposing (main)
-
--- import Browser.Events exposing (onClick)
+module Main exposing (..)
 
 import Browser
-import Element exposing (centerX, centerY, column, el, fill, height, image, shrink, spacing, text, width)
-import Element.Font as Font
-import Element.Input exposing (button)
-import Footer exposing (footer)
-import Html exposing (Html)
-import Http
-import Json.Decode exposing (Decoder, field, map2, string)
-import Navbar exposing (navigation)
+import Browser.Navigation as Nav
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Page as Page
+import Page.About as About
+import Page.Cat as Cat
+import Page.Home as Home
+import Page.NotFound as NotFound
+import Route
+import Url
 
 
 
--- MAIN
+-- MODEL
 
 
-main : Program () Model Msg
-main =
-    Browser.element
-        { init = init
-        , update = update
-        , subscriptions = subscriptions
-        , view = view
-        }
-
-
-type Model
-    = Failure
-    | Loading
-    | Success Cat
-
-
-
--- INIT
-
-
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Loading
-    , getRandomCatGif
-    )
-
-
-type alias Cat =
-    { image_url : String
-    , title : String
+type alias Model =
+    { key : Nav.Key
+    , page : Page.Page
     }
+
+
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    let
+        maybeRoute =
+            Route.fromUrl url
+
+        ( pageModel, _ ) =
+            NotFound.init
+
+        model =
+            Model key (Page.NotFound pageModel)
+    in
+    routePage maybeRoute model
 
 
 
@@ -55,23 +43,66 @@ type alias Cat =
 
 
 type Msg
-    = MorePlease
-    | GotGif (Result Http.Error Cat)
+    = CatMsg Cat.Msg
+    | AboutMsg About.Msg
+    | HomeMsg Home.Msg
+    | NotFoundMsg NotFound.Msg
+    | LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg _ =
+update msg model =
     case msg of
-        MorePlease ->
-            ( Loading, getRandomCatGif )
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.key (Url.toString url) )
 
-        GotGif result ->
-            case result of
-                Ok url ->
-                    ( Success url, Cmd.none )
+                Browser.External href ->
+                    ( model, Nav.load href )
 
-                Err _ ->
-                    ( Failure, Cmd.none )
+        UrlChanged url ->
+            routePage (Route.fromUrl url) model
+
+        _ ->
+            ( model, Cmd.none )
+
+
+routePage : Maybe Route.Route -> Model -> ( Model, Cmd Msg )
+routePage maybeRoute model =
+    case maybeRoute of
+        Just Route.Cat ->
+            routeCat model Cat.init
+
+        Just Route.About ->
+            routeAbout model About.init
+
+        Just Route.Home ->
+            routeHome model Home.init
+
+        Nothing ->
+            routeNotFound model NotFound.init
+
+
+routeCat : Model -> ( Cat.Model, Cmd Cat.Msg ) -> ( Model, Cmd Msg )
+routeCat model ( pageModel, cmds ) =
+    ( { model | page = Page.Cat pageModel }, Cmd.none )
+
+
+routeAbout : Model -> ( About.Model, Cmd About.Msg ) -> ( Model, Cmd Msg )
+routeAbout model ( pageModel, cmds ) =
+    ( { model | page = Page.About pageModel }, Cmd.none )
+
+
+routeHome : Model -> ( Home.Model, Cmd Home.Msg ) -> ( Model, Cmd Msg )
+routeHome model ( pageModel, cmds ) =
+    ( { model | page = Page.Home pageModel }, Cmd.none )
+
+
+routeNotFound : Model -> ( NotFound.Model, Cmd NotFound.Msg ) -> ( Model, Cmd Msg )
+routeNotFound model ( pageModel, cmds ) =
+    ( { model | page = Page.NotFound pageModel }, Cmd.none )
 
 
 
@@ -79,7 +110,7 @@ update msg _ =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.none
 
 
@@ -87,83 +118,45 @@ subscriptions model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    Element.layout [ width fill, height fill ]
-        (column
-            [ width fill, height fill, spacing 24 ]
-            [ Navbar.navigation
-            , case model of
-                Failure ->
-                    el [ centerX, centerY ]
-                        (text "Impossible de charger le chat.")
+    let
+        { page } =
+            model
+    in
+    { title = "Elm Example"
+    , body =
+        [ case page of
+            Page.Cat pageModel ->
+                Cat.view pageModel
+                    |> Html.map CatMsg
 
-                Loading ->
-                    el [ centerX, centerY ] (text "Chargement ..")
+            Page.About pageModel ->
+                About.view pageModel
+                    |> Html.map AboutMsg
 
-                Success cat ->
-                    el [ width fill, height fill ]
-                        (column [ width fill, height fill ]
-                            [ image
-                                [ height shrink, width shrink, centerX, centerY ]
-                                { description = cat.title, src = cat.image_url }
-                            , el [ centerX ] (text cat.title)
-                            ]
-                        )
-            , case model of
-                Failure ->
-                    button
-                        [ Font.size 30
-                        , centerX
-                        ]
-                        { label =
-                            el []
-                                (text "😾")
-                        , onPress = Just MorePlease
-                        }
+            Page.Home pageModel ->
+                Home.view pageModel
+                    |> Html.map HomeMsg
 
-                Loading ->
-                    button
-                        [ Font.size 30
-                        , centerX
-                        ]
-                        { label =
-                            el []
-                                (text "🙀")
-                        , onPress = Just MorePlease
-                        }
-
-                Success cat ->
-                    button
-                        [ Font.size 30
-                        , centerX
-                        ]
-                        { label =
-                            el []
-                                (text "😸")
-                        , onPress = Just MorePlease
-                        }
-            , Footer.footer
-            ]
-        )
+            Page.NotFound pageModel ->
+                NotFound.view pageModel
+                    |> Html.map NotFoundMsg
+        ]
+    }
 
 
 
--- HTTP
+-- PROGRAM
 
 
-getRandomCatGif : Cmd Msg
-getRandomCatGif =
-    Http.get
-        { url = "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cat"
-        , expect = Http.expectJson GotGif gifDecoder
+main : Program () Model Msg
+main =
+    Browser.application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
-
-
-gifDecoder : Decoder Cat
-gifDecoder =
-    field "data"
-        (map2 Cat
-            (field "image_url" string)
-            (field "title" string)
-        )
