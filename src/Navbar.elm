@@ -1,6 +1,6 @@
 module Navbar exposing (navigation)
 
-import Element exposing (Element, alignRight, centerY, el, fill, link, newTabLink, padding, row, spacing, text, width)
+import Element exposing (Element, alignRight, centerY, el, fill, link, padding, row, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Theme as T
@@ -25,15 +25,20 @@ navigation =
             , Font.extraLight
             , Font.size 16
             ]
-            [ newTabLink
+            [ link
                 []
-                { url = "https://www.github.com"
-                , label = text "Github"
+                { url = "/"
+                , label = text "Home"
                 }
             , link
                 []
-                { url = "https://www.elio3.fr"
-                , label = text "Eliot Roy"
+                { url = "/cat"
+                , label = text "Chats"
+                }
+            , link
+                []
+                { url = "/about"
+                , label = text "About"
                 }
             ]
         ]

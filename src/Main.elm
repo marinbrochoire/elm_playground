@@ -1,9 +1,11 @@
 module Main exposing (..)
 
-import Browser
+import Browser exposing (Document)
 import Browser.Navigation as Nav
+import Element exposing (Element, layout)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Navbar exposing (navigation)
 import Page as Page
 import Page.About as About
 import Page.Cat as Cat
@@ -118,7 +120,7 @@ subscriptions _ =
 -- VIEW
 
 
-view : Model -> Browser.Document Msg
+view : Model -> Document Msg
 view model =
     let
         { page } =
@@ -126,7 +128,8 @@ view model =
     in
     { title = "Elm Example"
     , body =
-        [ case page of
+        [ Element.layout [] Navbar.navigation
+        , case page of
             Page.Cat pageModel ->
                 Cat.view pageModel
                     |> Html.map CatMsg

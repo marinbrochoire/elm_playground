@@ -76,8 +76,7 @@ view model =
     Element.layout [ width fill, height fill ]
         (column
             [ width fill, height fill, spacing 24 ]
-            [ Navbar.navigation
-            , case model of
+            [ case model of
                 Failure ->
                     el [ centerX, centerY ]
                         (text "Impossible de charger le chat.")
